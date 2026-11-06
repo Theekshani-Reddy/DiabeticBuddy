@@ -1,39 +1,32 @@
-import { useEffect, useState } from 'react';
+import AuthForm from './components/AuthForm.jsx';
+import Brand from './components/Brand.jsx';
+import Home from './components/Home.jsx';
+import { useAuth } from './hooks/useAuth.js';
 
 export default function App() {
-  const [apiStatus, setApiStatus] = useState('Checking API connection...');
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function checkApi() {
-      try {
-        const response = await fetch('/api/health', { signal: controller.signal });
-        if (!response.ok) throw new Error('Health check failed');
-        const data = await response.json();
-        if (data.status !== 'ok') throw new Error('Unexpected health response');
-        setApiStatus('API connected.');
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          setApiStatus('API unavailable. Start the Express server and refresh.');
-        }
-      }
-    }
-
-    checkApi();
-    return () => controller.abort();
-  }, []);
+  const auth = useAuth();
+  if (auth.user) return <Home user={auth.user} onLogout={() => auth.logout()} />;
 
   return (
-    <main className="welcome">
-      <p className="eyebrow">BLOOD GLUCOSE TRACKER</p>
-      <h1>Sweety</h1>
-      <p className="intro">A little space for your daily readings.</p>
-      <section className="setup-card" aria-labelledby="setup-title">
-        <h2 id="setup-title">Our starting point</h2>
-        <p>The project is set up. Sign up, readings, and reports are coming in the next stages.</p>
-        <p className="status" role="status">{apiStatus}</p>
-      </section>
-    </main>
+    <div className="auth-layout">
+      <aside className="story-panel" aria-label="About Sweety">
+        <Brand />
+        <div className="story-content">
+          <h2>Blood glucose<br />tracker.</h2>
+        </div>
+      </aside>
+      <main className="form-panel">
+        {auth.checking ? (
+          <section className="session-panel" aria-labelledby="session-title">
+            <h1 id="session-title">{auth.restoreError ? 'Connection error' : 'Loading…'}</h1>
+            <p role={auth.restoreError ? 'alert' : 'status'}>{auth.restoreError || 'Checking your session.'}</p>
+            {auth.restoreError && <div className="session-actions">
+              <button className="primary-button" onClick={auth.retrySession}>Try again</button>
+              <button className="secondary-button" onClick={() => auth.logout()}>Back to log in</button>
+            </div>}
+          </section>
+        ) : <AuthForm onSuccess={auth.signIn} notice={auth.notice} />}
+      </main>
+    </div>
   );
 }

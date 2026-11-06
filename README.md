@@ -1,7 +1,7 @@
 # Sweety
 
 Blood glucose tracker built with React, Express, Node.js, and PostgreSQL for the Kenpath assignment.
-The project is in development; the database and authentication API are implemented.
+The project is in development; signup, login, session handling, and the database are implemented.
 
 ## Setup
 
@@ -51,9 +51,9 @@ npm test
 npm run build
 ```
 
-Tests require `TEST_DATABASE_URL`; they use isolated schemas and roll back all test data.
-They cover authentication, password hashing, token validation, user identity, and database constraints.
-`npm run test:db` runs only the database constraint tests.
+Server tests require `TEST_DATABASE_URL`; they use isolated schemas and roll back all test data.
+Tests cover authentication, password hashing, tokens, user identity, database constraints, and frontend session flows.
+Use `npm run test:client` for frontend tests, `npm run test:server` for API/database tests, or `npm run test:db` for constraints only.
 
 ## Authentication API
 
@@ -66,7 +66,8 @@ They cover authentication, password hashing, token validation, user identity, an
 Registration and login return `{ user: { id, name, email }, token }`. Tokens expire after one hour.
 Passwords require at least 8 characters and at most 72 UTF-8 bytes; they are hashed with bcrypt (cost 12).
 Email addresses are trimmed and lowercased. Registration/login share a limit of 30 requests per IP per 15 minutes.
-Errors return `{ error }`, with a `field` for form validation errors. The login/signup screens are not built yet.
+Errors return `{ error }`, with a `field` for form validation errors.
+The frontend keeps the token in per-tab session storage and verifies it with the API after refresh. Logout clears the client session.
 
 ## Configuration
 

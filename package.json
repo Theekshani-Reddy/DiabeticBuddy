@@ -12,7 +12,9 @@
     "dev:server": "npm run dev --workspace server",
     "db:migrate": "npm run db:migrate --workspace server",
     "test:db": "npm run test:db --workspace server",
-    "test": "npm test --workspace server",
+    "test:server": "npm test --workspace server",
+    "test:client": "npm test --workspace client",
+    "test": "npm run test:server && npm run test:client",
     "build": "npm run build --workspace client",
     "start": "npm run start --workspace server"
   }
