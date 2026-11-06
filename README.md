@@ -1,7 +1,7 @@
 # Sweety
 
 Blood glucose tracker built with React, Express, Node.js, and PostgreSQL for the Kenpath assignment.
-The project is in development; signup, login, session handling, and the database are implemented.
+The project is in development; authentication and the readings API are implemented.
 
 ## Setup
 
@@ -51,22 +51,13 @@ npm test
 npm run build
 ```
 
-Server tests require `TEST_DATABASE_URL`; they use isolated schemas and roll back all test data.
-Tests cover authentication, password hashing, tokens, user identity, database constraints, and frontend session flows.
+Server tests require `TEST_DATABASE_URL`; they use isolated schemas and remove test data afterward.
+Tests cover authentication, reading validation/CRUD, user isolation, concurrent writes, database constraints, and frontend sessions.
 Use `npm run test:client` for frontend tests, `npm run test:server` for API/database tests, or `npm run test:db` for constraints only.
 
-## Authentication API
+## API
 
-| Method | Endpoint | JSON body / authentication |
-| --- | --- | --- |
-| POST | `/api/auth/register` | `name`, `email`, `password` |
-| POST | `/api/auth/login` | `email`, `password` |
-| GET | `/api/auth/me` | `Authorization: Bearer <token>` header |
-
-Registration and login return `{ user: { id, name, email }, token }`. Tokens expire after one hour.
-Passwords require at least 8 characters and at most 72 UTF-8 bytes; they are hashed with bcrypt (cost 12).
-Email addresses are trimmed and lowercased. Registration/login share a limit of 30 requests per IP per 15 minutes.
-Errors return `{ error }`, with a `field` for form validation errors.
+See the [API reference](docs/API.md) for authentication and reading endpoints, payloads, and validation messages.
 The frontend keeps the token in per-tab session storage and verifies it with the API after refresh. Logout clears the client session.
 
 ## Configuration
@@ -83,7 +74,7 @@ The example database credentials are for local development. Keep `.env` out of G
 
 ## Notes
 
-- Dates are calendar dates; future-date validation will use `Asia/Kolkata`. Timestamps use `TIMESTAMPTZ`.
+- Dates are calendar dates; future-date validation uses `Asia/Kolkata`. Timestamps use `TIMESTAMPTZ`.
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL is required despite the assignment's MERN label. Optional features follow the required functionality.
 - Demo seed data and screenshots will be added before submission. Potential improvements: charts and pagination.
