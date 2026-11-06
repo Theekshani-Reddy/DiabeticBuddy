@@ -101,7 +101,23 @@ h1 { font-size: clamp(29px, 3vw, 39px); font-weight: 600; line-height: 1.2; lett
 .cancel-edit { width: 100%; margin-top: 12px; }
 .readings-empty { margin: 0; padding: 20px 0; font-size: 14px; color: var(--muted); line-height: 1.7; }
 .readings-empty p { margin-bottom: 16px; }
-.recorded-card { padding-top: 20px; }
+.reports-section > h2 { margin: 0 0 12px; font-size: 17px; font-weight: 750; letter-spacing: -.3px; }
+.report-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 4px; border-radius: 28px; margin-bottom: 12px; background: #eeeae2; }
+.report-tabs button { min-height: 42px; min-width: 0; border: 0; border-radius: 24px; background: transparent; color: var(--muted); font-size: 13px; line-height: 1.35; font-weight: 650; padding: 8px; }
+.report-tabs button[aria-selected="true"] { background: var(--teal); color: #fff; }
+.report-tabs button:disabled { cursor: default; }
+.report-card:focus-visible { outline: 3px solid #88b9a8; outline-offset: 4px; }
+.report-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.report-heading h3 { margin: 0; text-transform: uppercase; color: #8a9a94; font-size: 12px; font-weight: 750; letter-spacing: .2px; }
+.report-heading > span { font-size: 12px; color: #8a9a94; white-space: nowrap; }
+.report-range { color: #8a9a94; font-size: 11px; line-height: 1.6; margin: 7px 0 0; }
+.report-average { display: flex; align-items: baseline; gap: 13px; margin: 9px 0 7px; }
+.report-average strong { font-size: 44px; line-height: 1.1; letter-spacing: -1.2px; font-weight: 800; }
+.report-average > span { font-size: 14px; color: #8a9a94; font-weight: 600; }
+.report-extremes { display: flex; gap: 23px; margin: 0 0 20px; font-size: 14px; line-height: 1.7; }
+.report-extremes > div { display: flex; gap: 6px; }
+.report-extremes dt { color: var(--muted); }
+.report-extremes dd { margin: 0; font-weight: 750; }
 .readings-list { list-style: none; padding: 0; margin: 0; }
 .readings-list > li { padding: 12px; margin-bottom: 9px; background: #fff; border-radius: 16px; box-shadow: 0 1px 7px #243b3608; }
 .readings-list > li:last-child { margin-bottom: 0; }

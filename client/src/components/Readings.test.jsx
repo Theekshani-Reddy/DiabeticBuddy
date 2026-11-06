@@ -7,6 +7,16 @@ const today = '2026-11-06';
 const morning = { id: 1, date: today, slot: 'morning', value: 112, created_at: '2026-11-06T07:00:00Z' };
 const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
 
+function daily(readings, date = today) {
+  const values = readings.map((reading) => reading.value);
+  return {
+    type: 'daily', date, startDate: date, endDate: date, readings, count: readings.length,
+    average: readings.length ? Math.round(values.reduce((sum, value) => sum + value, 0) * 10 / readings.length) / 10 : null,
+    highest: readings.length ? Math.max(...values) : null,
+    lowest: readings.length ? Math.min(...values) : null,
+  };
+}
+
 function setup(fetchMock) {
   vi.stubGlobal('fetch', fetchMock);
   const expired = vi.fn();
@@ -21,16 +31,16 @@ async function ready() {
 const list = () => screen.getByRole('region', { name: 'Recorded readings' });
 
 test('adds a numeric reading, updates the list/count, and selects the next available slot', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [] }))
-    .mockResolvedValueOnce(reply({ reading: morning }, 201));
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
+    .mockResolvedValueOnce(reply({ reading: morning }, 201)).mockResolvedValueOnce(reply(daily([morning])));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
-  expect(screen.getByText('No readings for this date.')).toBeInTheDocument();
+  expect(await screen.findByText('No readings for this date.')).toBeInTheDocument();
   await user.type(screen.getByLabelText('Glucose (mg/dl)'), '112');
   await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
   expect(await screen.findByText('Reading added.')).toBeInTheDocument();
-  expect(within(list()).getByText('112')).toBeInTheDocument();
+  await waitFor(() => expect(within(list()).getByText('112')).toBeInTheDocument());
   expect(screen.getByText('1 of 4 readings today')).toBeInTheDocument();
   expect(screen.getByLabelText('Glucose (mg/dl)')).toHaveValue(null);
   expect(screen.getByRole('radio', { name: 'After breakfast', exact: true })).toBeChecked();
@@ -40,7 +50,7 @@ test('adds a numeric reading, updates the list/count, and selects the next avail
 });
 
 test('shows required, range, whole-number, and future-date messages before sending data', async () => {
-  const fetchMock = vi.fn().mockResolvedValue(reply({ readings: [] }));
+  const fetchMock = vi.fn().mockResolvedValue(reply(daily([])));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
@@ -64,7 +74,7 @@ test('shows required, range, whole-number, and future-date messages before sendi
 });
 
 test('preserves the form values and displays the exact API duplicate-slot error', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [] }))
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
     .mockResolvedValueOnce(reply({ field: 'slot', error: 'You already have an After lunch reading for this date.' }, 409));
   setup(fetchMock);
   const user = userEvent.setup();
@@ -81,8 +91,9 @@ test('preserves the form values and displays the exact API duplicate-slot error'
 
 test('shows the four-per-day limit while still allowing an existing reading to be edited', async () => {
   const full = ['morning', 'after_breakfast', 'after_lunch', 'after_dinner'].map((slot, index) => ({ ...morning, id: index + 1, slot }));
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: full }))
-    .mockResolvedValueOnce(reply({ reading: { ...morning, value: 130 } }));
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily(full)))
+    .mockResolvedValueOnce(reply({ reading: { ...morning, value: 130 } }))
+    .mockResolvedValueOnce(reply(daily(full.map((item) => item.id === morning.id ? { ...item, value: 130 } : item))));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
@@ -93,15 +104,16 @@ test('shows the four-per-day limit while still allowing an existing reading to b
   await user.type(screen.getByLabelText('Glucose (mg/dl)'), '130');
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
   expect(await screen.findByText('Reading updated.')).toBeInTheDocument();
-  expect(within(list()).getByText('130')).toBeInTheDocument();
+  await waitFor(() => expect(within(list()).getByText('130')).toBeInTheDocument());
+  expect(screen.getByText('116.5')).toBeInTheDocument();
   expect(fetchMock.mock.calls[1][1].method).toBe('PUT');
   expect(screen.getByText('4 of 4 readings today')).toBeInTheDocument();
 });
 
 test('cancels edits without a write, and follows a saved reading moved to another date', async () => {
   const moved = { ...morning, date: '2026-11-05', value: 140 };
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [morning] }))
-    .mockResolvedValueOnce(reply({ reading: moved })).mockResolvedValueOnce(reply({ readings: [moved] }));
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([morning])))
+    .mockResolvedValueOnce(reply({ reading: moved })).mockResolvedValueOnce(reply(daily([moved], moved.date)));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
@@ -110,7 +122,7 @@ test('cancels edits without a write, and follows a saved reading moved to anothe
   await user.type(screen.getByLabelText('Glucose (mg/dl)'), '140');
   await user.click(screen.getByRole('button', { name: 'Cancel edit' }));
   expect(fetchMock).toHaveBeenCalledTimes(1);
-  expect(within(list()).getByText('112')).toBeInTheDocument();
+  await waitFor(() => expect(within(list()).getByText('112')).toBeInTheDocument());
   await user.click(screen.getByRole('button', { name: 'Edit Morning (fasting) reading' }));
   fireEvent.change(screen.getByLabelText('Date', { exact: true }), { target: { value: moved.date } });
   await user.clear(screen.getByLabelText('Glucose (mg/dl)'));
@@ -120,12 +132,12 @@ test('cancels edits without a write, and follows a saved reading moved to anothe
   await ready();
   expect(within(list()).getByText('140')).toBeInTheDocument();
   expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ date: moved.date, slot: 'morning', value: 140 });
-  expect(fetchMock.mock.calls[2][0]).toBe('/api/readings?date=2026-11-05');
+  expect(fetchMock.mock.calls[2][0]).toBe('/api/reports/daily?date=2026-11-05');
 });
 
 test('requires delete confirmation, handles an empty 204 response, and preserves an unsaved draft', async () => {
   const emptyResponse = { ok: true, status: 204, json: vi.fn() };
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [morning] })).mockResolvedValueOnce(emptyResponse);
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([morning]))).mockResolvedValueOnce(emptyResponse).mockResolvedValueOnce(reply(daily([])));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
@@ -138,35 +150,35 @@ test('requires delete confirmation, handles an empty 204 response, and preserves
   await user.click(screen.getByRole('button', { name: 'Delete Morning (fasting) reading' }));
   await user.click(screen.getByRole('button', { name: 'Confirm delete' }));
   expect(await screen.findByText('Reading deleted.')).toBeInTheDocument();
-  expect(screen.getByText('No readings for this date.')).toBeInTheDocument();
+  expect(await screen.findByText('No readings for this date.')).toBeInTheDocument();
   expect(screen.getByLabelText('Glucose (mg/dl)')).toHaveValue(145);
   expect(emptyResponse.json).not.toHaveBeenCalled();
   expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
 });
 
 test('keeps a reading visible after a failed delete and supports retry', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [morning] }))
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([morning])))
     .mockResolvedValueOnce(reply({ error: 'Something went wrong. Please try again.' }, 500))
-    .mockResolvedValueOnce({ ok: true, status: 204 });
+    .mockResolvedValueOnce({ ok: true, status: 204 }).mockResolvedValueOnce(reply(daily([])));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
   await user.click(screen.getByRole('button', { name: 'Delete Morning (fasting) reading' }));
   await user.click(screen.getByRole('button', { name: 'Confirm delete' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.');
-  expect(within(list()).getByText('112')).toBeInTheDocument();
+  await waitFor(() => expect(within(list()).getByText('112')).toBeInTheDocument());
   await user.click(screen.getByRole('button', { name: 'Confirm delete' }));
   expect(await screen.findByText('No readings for this date.')).toBeInTheDocument();
 });
 
 test('offers retry for a failed list request without discarding the session', async () => {
-  const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError('Offline')).mockResolvedValueOnce(reply({ readings: [] }));
+  const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError('Offline')).mockResolvedValueOnce(reply(daily([])));
   const expired = setup(fetchMock);
   const user = userEvent.setup();
   expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t connect.');
   await user.click(screen.getByRole('button', { name: 'Retry' }));
   await ready();
-  expect(screen.getByText('No readings for this date.')).toBeInTheDocument();
+  expect(await screen.findByText('No readings for this date.')).toBeInTheDocument();
   expect(expired).not.toHaveBeenCalled();
 });
 
@@ -174,20 +186,20 @@ test('ignores stale responses when the selected date changes during loading', as
   let finishOldRequest;
   const other = { ...morning, id: 2, date: '2026-11-05', slot: 'after_lunch', value: 148 };
   const fetchMock = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { finishOldRequest = resolve; }))
-    .mockResolvedValueOnce(reply({ readings: [other] }));
+    .mockResolvedValueOnce(reply(daily([other], other.date)));
   setup(fetchMock);
   fireEvent.change(screen.getByLabelText('View date'), { target: { value: other.date } });
   await ready();
   expect(within(list()).getByText('148')).toBeInTheDocument();
-  await act(async () => finishOldRequest(reply({ readings: [morning] })));
+  await act(async () => finishOldRequest(reply(daily([morning]))));
   expect(within(list()).queryByText('112')).not.toBeInTheDocument();
   expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
 });
 
 test('prevents repeat submissions and date changes while saving', async () => {
   let finishSave;
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [] }))
-    .mockImplementationOnce(() => new Promise((resolve) => { finishSave = resolve; }));
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
+    .mockImplementationOnce(() => new Promise((resolve) => { finishSave = resolve; })).mockResolvedValueOnce(reply(daily([morning])));
   setup(fetchMock);
   const user = userEvent.setup();
   await ready();
@@ -207,7 +219,7 @@ test('expires the session when reading access is rejected', async () => {
 });
 
 test('expires the session when a save is rejected', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply({ readings: [] }))
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
     .mockResolvedValueOnce(reply({ error: 'Your session is invalid or expired. Please log in again.' }, 401));
   const expired = setup(fetchMock);
   const user = userEvent.setup();
@@ -215,4 +227,22 @@ test('expires the session when a save is rejected', async () => {
   await user.type(screen.getByLabelText('Glucose (mg/dl)'), '112');
   await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
   await waitFor(() => expect(expired).toHaveBeenCalledOnce());
+});
+
+test('keeps an unsaved draft when a successful deletion is followed by a failed report refresh', async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([morning])))
+    .mockResolvedValueOnce({ ok: true, status: 204 })
+    .mockRejectedValueOnce(new TypeError('Offline'))
+    .mockResolvedValueOnce(reply(daily([])));
+  setup(fetchMock);
+  const user = userEvent.setup();
+  await ready();
+  await user.type(screen.getByLabelText('Glucose (mg/dl)'), '145');
+  await user.click(screen.getByRole('button', { name: 'Delete Morning (fasting) reading' }));
+  await user.click(screen.getByRole('button', { name: 'Confirm delete' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t connect.');
+  expect(screen.getByLabelText('Glucose (mg/dl)')).toHaveValue(145);
+  await user.click(screen.getByRole('button', { name: 'Retry report' }));
+  expect(await screen.findByText('No readings for this date.')).toBeInTheDocument();
+  expect(screen.getByLabelText('Glucose (mg/dl)')).toHaveValue(145);
 });
