@@ -68,3 +68,46 @@ Value, date, and slot are validated before checking daily conflicts. When a day
 already has four readings, the daily-limit error takes precedence over a duplicate
 on create. Updates exclude the edited reading from these checks. Four allowed slots
 plus the unique database constraint enforce the daily cap even for concurrent writes.
+
+## Reports
+
+All reports are protected and use only the signed-in user's readings. Date ranges
+are inclusive and based on the reading's calendar date, not its creation timestamp.
+
+| Method | Endpoint | Range for `date=2026-10-15` |
+| --- | --- | --- |
+| GET | `/reports/daily?date=YYYY-MM-DD` | 15 October 2026 |
+| GET | `/reports/mtd?date=YYYY-MM-DD` | 1-15 October 2026 |
+| GET | `/reports/monthly?date=YYYY-MM-DD` | 1-30 September 2026 (whole previous month) |
+
+Omitting `date` uses today's date in `Asia/Kolkata`. A supplied date must be a real
+calendar date in `YYYY-MM-DD` format; invalid dates return `400` with `field: "date"`.
+Future report dates are permitted for read-only queries, consistent with reading filters.
+
+Example daily response:
+
+```json
+{
+  "type": "daily",
+  "date": "2026-10-15",
+  "startDate": "2026-10-15",
+  "endDate": "2026-10-15",
+  "highest": 148,
+  "lowest": 112,
+  "average": 134,
+  "count": 3,
+  "readings": [
+    { "id": 1, "date": "2026-10-15", "slot": "morning", "value": 112, "created_at": "2026-10-15T01:00:00.000Z" },
+    { "id": 2, "date": "2026-10-15", "slot": "after_breakfast", "value": 148, "created_at": "2026-10-15T04:00:00.000Z" },
+    { "id": 3, "date": "2026-10-15", "slot": "after_lunch", "value": 142, "created_at": "2026-10-15T08:00:00.000Z" }
+  ]
+}
+```
+
+Only the daily report includes `readings`, ordered by slot. All three reports return
+highest, lowest, average, and count. The average uses individual readings and is
+rounded to one decimal as a JSON number; the frontend formats `134` as `134.0`.
+
+Empty reports return `200` with `count: 0` and `highest`, `lowest`, and `average` set
+to `null`; the daily list is empty. The UI uses this to show its empty state. Reports
+are recalculated from current data on every request and responses use `Cache-Control: no-store`.

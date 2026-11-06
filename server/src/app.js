@@ -2,6 +2,7 @@ import express from 'express';
 import pool from './db/pool.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createReadingsRouter } from './routes/readings.js';
+import { createReportsRouter } from './routes/reports.js';
 import { errorHandler } from './middleware/error-handler.js';
 
 export function createApp({ db = pool, jwtSecret = process.env.JWT_SECRET, now = () => new Date() } = {}) {
@@ -19,6 +20,7 @@ export function createApp({ db = pool, jwtSecret = process.env.JWT_SECRET, now =
 
   app.use('/api/auth', createAuthRouter({ db, jwtSecret }));
   app.use('/api/readings', createReadingsRouter({ db, jwtSecret, now }));
+  app.use('/api/reports', createReportsRouter({ db, jwtSecret, now }));
   app.use((_req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
   app.use(errorHandler);
 

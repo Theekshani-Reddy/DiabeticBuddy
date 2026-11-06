@@ -1,7 +1,7 @@
 # Sweety
 
 Blood glucose tracker built with React, Express, Node.js, and PostgreSQL for the Kenpath assignment.
-The project is in development; authentication and reading entry/editing/deletion are implemented. Reports are pending.
+The project is in development; authentication, reading management, and report APIs are implemented. Report screens are pending.
 
 ## Setup
 
@@ -53,12 +53,12 @@ npm run build
 ```
 
 Server tests require `TEST_DATABASE_URL`; they use isolated schemas and remove test data afterward.
-Tests cover authentication, reading validation/CRUD, user isolation, concurrent writes, database constraints, and frontend forms/sessions.
+Tests cover authentication, readings, report calculations/date boundaries, user isolation, concurrent writes, database constraints, and frontend forms/sessions.
 Use `npm run test:client` for frontend tests, `npm run test:server` for API/database tests, or `npm run test:db` for constraints only.
 
 ## API
 
-See the [API reference](docs/API.md) for authentication and reading endpoints, payloads, and validation messages.
+See the [API reference](docs/API.md) for authentication, readings, reports, payloads, and validation messages.
 The frontend keeps the token in per-tab session storage and verifies it with the API after refresh. Logout clears the client session.
 
 ## Configuration
