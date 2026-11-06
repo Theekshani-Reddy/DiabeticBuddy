@@ -7,10 +7,17 @@
     "dev": "node --env-file-if-exists=../.env --watch src/index.js",
     "start": "node --env-file-if-exists=../.env src/index.js",
     "db:migrate": "node --env-file-if-exists=../.env src/db/migrate.js",
-    "test:db": "node --env-file-if-exists=../.env --test tests/db.test.js"
+    "test:db": "node --env-file-if-exists=../.env --test tests/db.test.js",
+    "test": "node --env-file-if-exists=../.env --test tests/*.test.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.3.1"
   }
 }

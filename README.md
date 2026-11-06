@@ -1,7 +1,7 @@
 # Sweety
 
 Blood glucose tracker built with React, Express, Node.js, and PostgreSQL for the Kenpath assignment.
-The project is in development; the client/API scaffold and database schema are implemented.
+The project is in development; the database and authentication API are implemented.
 
 ## Setup
 
@@ -12,6 +12,7 @@ npm install
 ```
 
 Copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell, `cp .env.example .env` on macOS/Linux).
+Generate `JWT_SECRET` with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and paste it into `.env`.
 For local PostgreSQL, create `sweety` and `sweety_test` databases and update both connection URLs in `.env`.
 Alternatively, start Docker Desktop and run:
 
@@ -46,12 +47,26 @@ Vite proxies `/api` to Express; restart both servers after changing `PORT`.
 ## Checks
 
 ```sh
-npm run test:db
+npm test
 npm run build
 ```
 
-Database tests require `TEST_DATABASE_URL`; they use isolated schemas and roll back all test data.
-They check slot uniqueness, the four-reading limit, value boundaries, foreign keys, and email uniqueness.
+Tests require `TEST_DATABASE_URL`; they use isolated schemas and roll back all test data.
+They cover authentication, password hashing, token validation, user identity, and database constraints.
+`npm run test:db` runs only the database constraint tests.
+
+## Authentication API
+
+| Method | Endpoint | JSON body / authentication |
+| --- | --- | --- |
+| POST | `/api/auth/register` | `name`, `email`, `password` |
+| POST | `/api/auth/login` | `email`, `password` |
+| GET | `/api/auth/me` | `Authorization: Bearer <token>` header |
+
+Registration and login return `{ user: { id, name, email }, token }`. Tokens expire after one hour.
+Passwords require at least 8 characters and at most 72 UTF-8 bytes; they are hashed with bcrypt (cost 12).
+Email addresses are trimmed and lowercased. Registration/login share a limit of 30 requests per IP per 15 minutes.
+Errors return `{ error }`, with a `field` for form validation errors. The login/signup screens are not built yet.
 
 ## Configuration
 
@@ -60,8 +75,8 @@ They check slot uniqueness, the four-reading limit, value boundaries, foreign ke
 | `PORT` | API port; default `3001`. |
 | `DATABASE_URL` | PostgreSQL application database. |
 | `TEST_DATABASE_URL` | Separate database for automated tests. |
-| `CLIENT_URL` | Frontend origin; reserved for authentication/CORS. |
-| `JWT_SECRET` | Token signing secret; authentication is not implemented yet. |
+| `CLIENT_URL` | Frontend origin; reserved for future deployment/CORS configuration. |
+| `JWT_SECRET` | Random token signing secret of at least 32 bytes. |
 
 The example database credentials are for local development. Keep `.env` out of Git.
 
@@ -70,4 +85,4 @@ The example database credentials are for local development. Keep `.env` out of G
 - Dates are calendar dates; future-date validation will use `Asia/Kolkata`. Timestamps use `TIMESTAMPTZ`.
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL is required despite the assignment's MERN label. Optional features follow the required functionality.
-- Demo seed data, API tests, and screenshots will be added before submission. Potential improvements: charts and pagination.
+- Demo seed data and screenshots will be added before submission. Potential improvements: charts and pagination.
