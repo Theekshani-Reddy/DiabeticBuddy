@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import App from './App.jsx';
 
+// Authentication behavior is tested separately from the readings workspace.
+vi.mock('./components/Readings.jsx', () => ({ default: () => null }));
+
 const patient = { id: 1, name: 'Test Patient', email: 'patient@example.test' };
 const password = ' Patientpass!42 ';
 const makeToken = () => `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))}.signature`;
@@ -21,7 +24,7 @@ test('logs in, preserves password whitespace, stores the token, and logs out', a
   const user = userEvent.setup();
   render(<App />);
   await fillLogin(user);
-  expect(await screen.findByRole('heading', { name: 'Hello, Test Patient.' })).toBeInTheDocument();
+  expect(await screen.findByRole('img', { name: 'Signed in as Test Patient' })).toBeInTheDocument();
   expect(sessionStorage.getItem('sweety.token')).toBe(token);
   expect(JSON.parse(fetchMock.mock.calls[0][1].body).password).toBe(password);
   await user.click(screen.getByRole('button', { name: 'Log out' }));
@@ -39,7 +42,7 @@ test('creates an account and signs in with the returned identity', async () => {
   await user.type(screen.getByLabelText('Email address'), patient.email);
   await user.type(screen.getByLabelText('Password', { exact: true }), password);
   await user.click(screen.getByRole('button', { name: 'Create my account' }));
-  expect(await screen.findByRole('heading', { name: 'Hello, Test Patient.' })).toBeInTheDocument();
+  expect(await screen.findByRole('img', { name: 'Signed in as Test Patient' })).toBeInTheDocument();
   expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/register');
   expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ name: patient.name, email: patient.email, password });
 });
@@ -105,11 +108,11 @@ test('verifies the stored token before showing the protected home screen', async
   vi.stubGlobal('fetch', fetchMock);
   render(<App />);
   expect(screen.getByText('Checking your session.')).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Hello, Test Patient.' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('img', { name: 'Signed in as Test Patient' })).not.toBeInTheDocument();
   expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/me');
   expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(`Bearer ${token}`);
   await act(async () => resolveRequest(reply({ user: patient })));
-  expect(screen.getByRole('heading', { name: 'Hello, Test Patient.' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Signed in as Test Patient' })).toBeInTheDocument();
 });
 
 test('clears a rejected stored session and returns to login with an explanation', async () => {
@@ -132,7 +135,7 @@ test('preserves the session during a connection failure and offers a working ret
   expect(await screen.findByRole('heading', { name: 'Connection error' })).toBeInTheDocument();
   expect(sessionStorage.getItem('sweety.token')).toBe(token);
   await user.click(screen.getByRole('button', { name: 'Try again' }));
-  expect(await screen.findByRole('heading', { name: 'Hello, Test Patient.' })).toBeInTheDocument();
+  expect(await screen.findByRole('img', { name: 'Signed in as Test Patient' })).toBeInTheDocument();
 });
 
 test('logs out automatically when the verified token expires', async () => {
@@ -140,7 +143,7 @@ test('logs out automatically when the verified token expires', async () => {
   sessionStorage.setItem('sweety.token', makeToken());
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply({ user: patient })));
   await act(async () => { render(<App />); });
-  expect(screen.getByRole('heading', { name: 'Hello, Test Patient.' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Signed in as Test Patient' })).toBeInTheDocument();
   await act(async () => { await vi.advanceTimersByTimeAsync(3600001); });
   expect(screen.getByRole('heading', { name: 'Log in', exact: true })).toBeInTheDocument();
   expect(sessionStorage.getItem('sweety.token')).toBeNull();
@@ -153,5 +156,5 @@ test('still permits login if the browser blocks session storage', async () => {
   const user = userEvent.setup();
   render(<App />);
   await fillLogin(user);
-  await waitFor(() => expect(screen.getByRole('heading', { name: 'Hello, Test Patient.' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('img', { name: 'Signed in as Test Patient' })).toBeInTheDocument());
 });

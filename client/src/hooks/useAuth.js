@@ -51,6 +51,8 @@ export function useAuth() {
     setNotice('');
   }
 
-  return { user, checking: Boolean(token && !user), restoreError, notice, signIn, logout,
+  const expireSession = useCallback(() => logout('Your session has expired. Please log in again.'), [logout]);
+
+  return { token, user, checking: Boolean(token && !user), restoreError, notice, signIn, logout, expireSession,
     retrySession: () => setRetry((value) => value + 1) };
 }

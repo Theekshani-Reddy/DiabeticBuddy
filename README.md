@@ -1,7 +1,7 @@
 # Sweety
 
 Blood glucose tracker built with React, Express, Node.js, and PostgreSQL for the Kenpath assignment.
-The project is in development; authentication and the readings API are implemented.
+The project is in development; authentication and reading entry/editing/deletion are implemented. Reports are pending.
 
 ## Setup
 
@@ -41,6 +41,7 @@ npm run dev:client
 ```
 
 Open http://localhost:5173. The API health check is http://localhost:3001/api/health.
+After login, choose a date, select a slot card, and enter a glucose value. Use Edit/Delete beside a recorded reading.
 Vite proxies `/api` to Express; restart both servers after changing `PORT`.
 `npm start` runs the API without watch mode. Production frontend hosting is not configured yet.
 
@@ -52,7 +53,7 @@ npm run build
 ```
 
 Server tests require `TEST_DATABASE_URL`; they use isolated schemas and remove test data afterward.
-Tests cover authentication, reading validation/CRUD, user isolation, concurrent writes, database constraints, and frontend sessions.
+Tests cover authentication, reading validation/CRUD, user isolation, concurrent writes, database constraints, and frontend forms/sessions.
 Use `npm run test:client` for frontend tests, `npm run test:server` for API/database tests, or `npm run test:db` for constraints only.
 
 ## API
@@ -74,7 +75,7 @@ The example database credentials are for local development. Keep `.env` out of G
 
 ## Notes
 
-- Dates are calendar dates; future-date validation uses `Asia/Kolkata`. Timestamps use `TIMESTAMPTZ`.
+- Dates and displayed times use `Asia/Kolkata`. Row times show when a reading was recorded, not its measurement time; timestamps use `TIMESTAMPTZ`.
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL is required despite the assignment's MERN label. Optional features follow the required functionality.
 - Demo seed data and screenshots will be added before submission. Potential improvements: charts and pagination.

@@ -5,7 +5,7 @@ import { useAuth } from './hooks/useAuth.js';
 
 export default function App() {
   const auth = useAuth();
-  if (auth.user) return <Home user={auth.user} onLogout={() => auth.logout()} />;
+  if (auth.user) return <Home user={auth.user} token={auth.token} onSessionExpired={auth.expireSession} onLogout={() => auth.logout()} />;
 
   return (
     <div className="auth-layout">
