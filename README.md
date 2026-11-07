@@ -91,4 +91,12 @@ The example database credentials are for local development. Keep `.env` out of G
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL follows the assignment's explicit database requirement despite its MERN label. Accounts are patients; the optional doctor role is not implemented.
 - Signup passwords require 8+ characters, uppercase/lowercase letters, a number, and a symbol, with a 72 UTF-8 byte maximum for bcrypt.
-- Bonus features: optional readings API pagination (`?page=1&limit=20`), PostgreSQL Docker Compose, monthly line charts, and frontend form tests. With more time: password recovery and deployment configuration.
+- Bonus features: optional readings API pagination (`?page=1&limit=20`), PostgreSQL Docker Compose, monthly line charts, and frontend form tests.
+
+### With more time
+
+- Account recovery: email verification and expiring, single-use password reset links.
+- Data export: CSV/PDF downloads of readings and reports.
+- Reminders: optional daily reminders for unfilled reading slots.
+- Doctor access: patient-approved report sharing with assigned doctors.
+- Delivery and maintenance: automated CI checks, production deployment, and monitoring.
