@@ -79,6 +79,50 @@ test('shows required, range, whole-number, and future-date messages before sendi
   expect(fetchMock.mock.calls.every(([, options]) => options.method === 'GET')).toBe(true);
 });
 
+test('clears success feedback when starting a new draft or submitting a client-side validation error', async () => {
+  const breakfast = { ...morning, id: 2, slot: 'after_breakfast', value: 148 };
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
+    .mockResolvedValueOnce(reply({ reading: morning })).mockResolvedValueOnce(reply(daily([morning])))
+    .mockResolvedValueOnce(reply({ reading: breakfast })).mockResolvedValueOnce(reply(daily([morning, breakfast])));
+  setup(fetchMock);
+  const user = userEvent.setup();
+  await ready();
+  await user.type(screen.getByLabelText('Glucose (mg/dl)'), '112');
+  await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
+  expect(await screen.findByText('Reading added.')).toBeInTheDocument();
+  await user.type(screen.getByLabelText('Glucose (mg/dl)'), '148');
+  expect(screen.queryByText('Reading added.')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
+  expect(await screen.findByText('Reading added.')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Please enter a glucose value.');
+  expect(screen.queryByText('Reading added.')).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledTimes(5);
+});
+
+test('expires success messages after five seconds and resets the timer for a later successful save', async () => {
+  const breakfast = { ...morning, id: 2, slot: 'after_breakfast', value: 148 };
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
+    .mockResolvedValueOnce(reply({ reading: morning })).mockResolvedValueOnce(reply(daily([morning])))
+    .mockResolvedValueOnce(reply({ reading: breakfast })).mockResolvedValueOnce(reply(daily([morning, breakfast])));
+  setup(fetchMock);
+  await ready();
+  vi.useFakeTimers();
+  fireEvent.change(screen.getByLabelText('Glucose (mg/dl)'), { target: { value: '112' } });
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Add reading', exact: true })));
+  expect(screen.getByText('Reading added.')).toBeInTheDocument();
+  await act(async () => vi.advanceTimersByTime(4000));
+  fireEvent.change(screen.getByLabelText('Glucose (mg/dl)'), { target: { value: '148' } });
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Add reading', exact: true })));
+  await act(async () => vi.advanceTimersByTime(1000));
+  expect(screen.getByText('Reading added.')).toBeInTheDocument();
+  await act(async () => vi.advanceTimersByTime(3999));
+  expect(screen.getByText('Reading added.')).toBeInTheDocument();
+  await act(async () => vi.advanceTimersByTime(1));
+  expect(screen.queryByText('Reading added.')).not.toBeInTheDocument();
+  expect(within(list()).getByText('148')).toBeInTheDocument();
+});
+
 test('preserves the form values and displays the exact API duplicate-slot error', async () => {
   const fetchMock = vi.fn().mockResolvedValueOnce(reply(daily([])))
     .mockResolvedValueOnce(reply({ field: 'slot', error: 'You already have an After lunch reading for this date.' }, 409));

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useLayoutEffect, useId, useRef, useState } from 'react';
 import { slots } from '../lib/readings.js';
 
 const colors = ['#b87943', '#987d26', '#4b805d', '#6a5796'];
@@ -18,8 +18,11 @@ export default function GlucoseChart({ readings = [], startDate, endDate }) {
   const container = useRef(null);
   const [width, setWidth] = useState(600);
 
-  useEffect(() => {
-    if (typeof ResizeObserver === 'undefined' || !container.current) return;
+  useLayoutEffect(() => {
+    if (!container.current) return;
+    const measuredWidth = container.current.getBoundingClientRect().width;
+    if (measuredWidth > 0) setWidth(measuredWidth);
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry.contentRect.width > 0) setWidth(entry.contentRect.width);
     });

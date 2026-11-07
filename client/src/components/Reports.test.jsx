@@ -100,8 +100,10 @@ test('ignores a late response after the user switches to another report', async 
   render(<Harness />);
   await user.click(screen.getByRole('tab', { name: 'This month' }));
   expect(screen.getByText('Loading report…')).toBeInTheDocument();
+  expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'true');
   await user.click(screen.getByRole('tab', { name: 'Last month' }));
   expect(await screen.findByText('150.0')).toBeInTheDocument();
+  expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'false');
   await act(async () => finishMonthToDate(reply(mtd)));
   expect(screen.queryByText('165.3')).not.toBeInTheDocument();
   expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);

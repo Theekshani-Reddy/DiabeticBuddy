@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { isValidDate, slots } from '../lib/readings.js';
 
-export default function ReadingForm({ date, today, reading, readings, busy, saving, message, onSave, onCancel }) {
+export default function ReadingForm({ date, today, reading, readings, busy, saving, message, onDismissMessage, onSave, onCancel }) {
   const initialSlot = slots.find((slot) => !readings.some((item) => item.slot === slot.value))?.value || 'morning';
   const [values, setValues] = useState({ date: reading?.date || date, slot: reading?.slot || initialSlot, value: String(reading?.value ?? '') });
   const [errors, setErrors] = useState({});
   const formRef = useRef(null);
   const errorTarget = useRef(null);
   const full = !reading && values.date === date && readings.length >= 4;
+  const hasErrors = Object.values(errors).some(Boolean);
 
   useEffect(() => {
     if (!reading && values.date === date && readings.some((item) => item.slot === values.slot)) {
@@ -27,6 +28,7 @@ export default function ReadingForm({ date, today, reading, readings, busy, savi
   }, [errors]);
 
   function change(event) {
+    onDismissMessage();
     const { name, value } = event.target;
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined, form: undefined }));
@@ -40,6 +42,7 @@ export default function ReadingForm({ date, today, reading, readings, busy, savi
   async function submit(event) {
     event.preventDefault();
     if (busy || full) return;
+    onDismissMessage();
     const nextErrors = {};
     const value = Number(values.value);
     if (!values.value.trim()) nextErrors.value = 'Please enter a glucose value.';
@@ -102,10 +105,11 @@ export default function ReadingForm({ date, today, reading, readings, busy, savi
             {saving ? 'Saving…' : reading ? 'Save' : 'Add'}
           </button>
         </div>
-        {fieldError('value')}
-        {full && <p className="notice" role="status">You can add only 4 readings per day.</p>}
-        {errors.form && <p className="form-error" role="alert">{errors.form}</p>}
-        {message && <p className="mutation-message" role="status">{message}</p>}
+        <div className="reading-feedback">
+          {errors.value ? fieldError('value') : errors.form ? <p className="field-error" role="alert">{errors.form}</p>
+            : !hasErrors && (message ? <p className="mutation-message" role="status">{message}</p>
+              : full && <p className="notice" role="status">You can add only 4 readings per day.</p>)}
+        </div>
         {reading && <button className="secondary-button cancel-edit" type="button" onClick={onCancel} disabled={busy}>Cancel edit</button>}
       </form>
     </section>

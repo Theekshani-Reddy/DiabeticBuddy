@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiRequest } from '../lib/api.js';
 import { formatReadingDate, greetingInKolkata, isValidDate, sortReadings, todayInKolkata } from '../lib/readings.js';
 import ReadingForm from './ReadingForm.jsx';
@@ -14,6 +14,7 @@ export default function Readings({ user, token, onSessionExpired, today = todayI
   const [deleteError, setDeleteError] = useState('');
   const [action, setAction] = useState(null);
   const [message, setMessage] = useState('');
+  const messageTimer = useRef(null);
   const [reload, setReload] = useState(0);
   const [formVersion, setFormVersion] = useState(0);
   const current = data.date === date;
@@ -22,6 +23,19 @@ export default function Readings({ user, token, onSessionExpired, today = todayI
   const error = current ? data.error : '';
   const readings = current ? data.readings : [];
   const busy = Boolean(action);
+
+  const dismissMessage = useCallback(() => {
+    clearTimeout(messageTimer.current);
+    setMessage('');
+  }, []);
+
+  function showMessage(text) {
+    clearTimeout(messageTimer.current);
+    setMessage(text);
+    messageTimer.current = setTimeout(() => setMessage(''), 5000);
+  }
+
+  useEffect(() => () => clearTimeout(messageTimer.current), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,12 +60,12 @@ export default function Readings({ user, token, onSessionExpired, today = todayI
     setEditing(null);
     setDeleteId(null);
     setDeleteError('');
-    setMessage('');
+    dismissMessage();
   }
 
   async function save(body) {
     setAction('save');
-    setMessage('');
+    dismissMessage();
     setDeleteId(null);
     setDeleteError('');
     try {
@@ -63,7 +77,7 @@ export default function Readings({ user, token, onSessionExpired, today = todayI
           ...current.readings.filter((item) => item.id !== result.reading.id), result.reading,
         ]) }));
       } else setDate(result.reading.date);
-      setMessage(editing ? 'Reading updated.' : 'Reading added.');
+      showMessage(editing ? 'Reading updated.' : 'Reading added.');
       setEditing(null);
       setFormVersion((value) => value + 1);
       setReload((value) => value + 1);
@@ -79,12 +93,12 @@ export default function Readings({ user, token, onSessionExpired, today = todayI
     if (busy) return;
     setAction('delete');
     setDeleteError('');
-    setMessage('');
+    dismissMessage();
     try {
       await apiRequest(`readings/${id}`, { method: 'DELETE', token });
       setData((current) => ({ ...current, report: null, refreshing: true, readings: current.readings.filter((item) => item.id !== id) }));
       setDeleteId(null);
-      setMessage('Reading deleted.');
+      showMessage('Reading deleted.');
       setReload((value) => value + 1);
     } catch (error) {
       if (error.status === 401) onSessionExpired();
@@ -113,16 +127,17 @@ export default function Readings({ user, token, onSessionExpired, today = todayI
       ) : (
         <div className="readings-grid">
           <ReadingForm key={`${date}-${editing?.id || 'new'}-${formVersion}`} date={date} today={today} reading={editing}
-            readings={readings} busy={busy} saving={action === 'save'} message={message} onSave={save} onCancel={() => setEditing(null)} />
+            readings={readings} busy={busy} saving={action === 'save'} message={message} onDismissMessage={dismissMessage}
+            onSave={save} onCancel={() => setEditing(null)} />
           <Reports date={date} today={today} token={token} type={reportType} onTypeChange={(type) => {
-            setReportType(type); setDeleteId(null); setDeleteError('');
+            setReportType(type); setDeleteId(null); setDeleteError(''); dismissMessage();
           }} dailyReport={current ? data.report : null} dailyLoading={!current || data.refreshing} dailyError={error}
             onRetryDaily={() => setReload((value) => value + 1)} revision={reload} onSessionExpired={onSessionExpired}
             disabled={busy || Boolean(editing)}>
             <ReadingList readings={data.report?.readings || []} busy={busy} editing={editing} deleteId={deleteId}
               deleteError={deleteError} deleting={action === 'delete'} onEdit={(reading) => {
-                setEditing(reading); setDeleteId(null); setDeleteError(''); setMessage('');
-              }} onStartDelete={(id) => { setDeleteId(id); setDeleteError(''); setMessage(''); }}
+                setEditing(reading); setDeleteId(null); setDeleteError(''); dismissMessage();
+              }} onStartDelete={(id) => { setDeleteId(id); setDeleteError(''); dismissMessage(); }}
               onCancelDelete={() => setDeleteId(null)} onConfirmDelete={remove} />
           </Reports>
         </div>

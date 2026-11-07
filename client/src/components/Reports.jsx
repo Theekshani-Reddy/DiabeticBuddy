@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { apiRequest } from '../lib/api.js';
 import GlucoseChart from './GlucoseChart.jsx';
 
@@ -15,6 +15,11 @@ export default function Reports({ date, today, token, type, onTypeChange, dailyR
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState({ key: '', report: null, loading: true, error: '' });
   const buttons = useRef([]);
+  const section = useRef(null);
+  const panel = useRef(null);
+  const content = useRef(null);
+  const dimensions = useRef({ date, width: 0, height: 0, panel: 0 });
+  const [heights, setHeights] = useState({ panel: 0, section: 0 });
   const key = `${date}:${type}:${revision}:${retry}`;
   const labels = date === today ? ['Today', 'This month', 'Last month'] : ['Daily', 'Month to date', 'Previous month'];
 
@@ -39,6 +44,35 @@ export default function Reports({ date, today, token, type, onTypeChange, dailyR
   const error = type === 'daily' ? dailyError : result.key === key ? result.error : '';
   const heading = type === 'daily' ? (date === today ? 'Today' : 'Daily') : type === 'mtd' ? 'Month to date' : 'Previous month';
 
+  useLayoutEffect(() => {
+    const element = panel.current;
+    function measure() {
+      const width = element.getBoundingClientRect().width;
+      if (dimensions.current.date !== date || Math.abs(dimensions.current.width - width) >= 1) {
+        dimensions.current = { date, width, height: 0, panel: 0 };
+      }
+      if (!loading) {
+        const style = getComputedStyle(element);
+        const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+        const naturalHeight = Math.ceil(content.current.getBoundingClientRect().height + padding);
+        dimensions.current.height = Math.max(dimensions.current.height, naturalHeight);
+        dimensions.current.panel = naturalHeight;
+      }
+      const headingHeight = element.getBoundingClientRect().top - section.current.getBoundingClientRect().top;
+      const next = { panel: dimensions.current.panel, section: dimensions.current.height + headingHeight };
+      setHeights(current => current.panel === next.panel && current.section === next.section ? current : next);
+    }
+    // Reserve the largest report area for this date/width to preserve scrolling.
+    // The card itself stays compact once loading finishes.
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (Math.abs(dimensions.current.width - element.getBoundingClientRect().width) >= 1) measure();
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [date, loading, report, error]);
+
   function navigate(event, index) {
     const nextIndex = event.key === 'ArrowRight' ? (index + 1) % periods.length
       : event.key === 'ArrowLeft' ? (index + periods.length - 1) % periods.length
@@ -50,7 +84,7 @@ export default function Reports({ date, today, token, type, onTypeChange, dailyR
   }
 
   return (
-    <section className="reports-section" aria-labelledby="reports-title">
+    <section ref={section} className="reports-section" aria-labelledby="reports-title" style={heights.section ? { minHeight: heights.section } : undefined}>
       <h2 id="reports-title">Reports</h2>
       <div className="report-tabs" role="tablist" aria-label="Report period">
         {periods.map((period, index) => <button key={period} ref={(element) => { buttons.current[index] = element; }}
@@ -58,7 +92,9 @@ export default function Reports({ date, today, token, type, onTypeChange, dailyR
           tabIndex={type === period ? 0 : -1} disabled={disabled} onClick={() => onTypeChange(period)}
           onKeyDown={(event) => navigate(event, index)}>{labels[index]}</button>)}
       </div>
-      <section className="reading-card report-card" id="report-panel" role="tabpanel" aria-labelledby={`report-tab-${type}`} tabIndex={0}>
+      <section ref={panel} className="reading-card report-card" id="report-panel" role="tabpanel" aria-labelledby={`report-tab-${type}`}
+        aria-busy={loading} tabIndex={0} style={loading && heights.panel ? { minHeight: heights.panel } : undefined}>
+        <div ref={content} key={key} className={`report-content${loading ? '' : ' is-ready'}`}>
         {loading ? <p className="readings-empty" role="status">Loading report…</p> : error ? <div className="readings-empty">
           <p role="alert">{error}</p>
           <button className="secondary-button" onClick={type === 'daily' ? onRetryDaily : () => setRetry((value) => value + 1)}>Retry report</button>
@@ -78,6 +114,7 @@ export default function Reports({ date, today, token, type, onTypeChange, dailyR
             {type !== 'daily' && <GlucoseChart readings={report.readings} startDate={report.startDate} endDate={report.endDate} />}
           </>}
         </>}
+        </div>
       </section>
     </section>
   );
