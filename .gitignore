@@ -10,3 +10,4 @@ Thumbs.db
 .npm-cache/
 CODEX_PLAN.md
 tmp/
+docker-compose.override.yml

@@ -17,13 +17,12 @@ For local PostgreSQL, create `sweety` and `sweety_test` databases and update bot
 Alternatively, start Docker Desktop and run:
 
 ```sh
-docker run --name sweety-db -e POSTGRES_USER=sweety -e POSTGRES_PASSWORD=sweety-local -e POSTGRES_DB=sweety -p 127.0.0.1:5432:5432 -v sweety-pgdata:/var/lib/postgresql/data -d postgres:16
-docker exec sweety-db pg_isready -U sweety -d sweety
-docker exec sweety-db createdb -U sweety sweety_test
+docker compose up -d --wait
 ```
 
-Wait for `pg_isready` to say "accepting connections" before creating the test database.
-On later runs, use `docker start sweety-db`. Then apply migrations for either database setup:
+Compose waits for PostgreSQL and creates both databases on a new volume. For an existing manual container, follow the [data-preserving switch instructions](docs/DOCKER.md#existing-database) first.
+Use `docker compose down` to stop; its data volume is retained. React and Express run with npm below.
+Then apply migrations for either database setup:
 
 ```sh
 npm run db:migrate
@@ -91,4 +90,4 @@ The example database credentials are for local development. Keep `.env` out of G
 - Dates and displayed times use `Asia/Kolkata`. Row times show when a reading was recorded, not its measurement time; timestamps use `TIMESTAMPTZ`.
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL follows the assignment's explicit database requirement despite its MERN label. Accounts are patients; the optional doctor role is not implemented.
-- Bonus features: monthly line charts and frontend form tests. With more time: pagination, password recovery, and deployment configuration.
+- Bonus features: PostgreSQL Docker Compose, monthly line charts, and frontend form tests. With more time: pagination, password recovery, and deployment configuration.
