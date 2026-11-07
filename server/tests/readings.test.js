@@ -101,9 +101,13 @@ test('uses the exact required and range messages for invalid glucose values', as
     const response = await api('post').send({ ...sample, value }).expect(400);
     assert.deepEqual(response.body, { field: 'value', error: 'Please enter a glucose value.' });
   }
-  for (const value of [39, 601, 112.5, '112', true, [], {}]) {
+  for (const value of [39, 601, '112', true, [], {}]) {
     const response = await api('post').send({ ...sample, value }).expect(400);
     assert.deepEqual(response.body, { field: 'value', error: 'Value must be between 40 and 600 mg/dl.' });
+  }
+  for (const value of [112.5, 39.5, 600.1]) {
+    const response = await api('post').send({ ...sample, value }).expect(400);
+    assert.deepEqual(response.body, { field: 'value', error: 'Please enter a whole number.' });
   }
   assert.deepEqual((await api('get').expect(200)).body, { readings: [] });
   await add({ value: 40 });
@@ -174,7 +178,7 @@ test('validates updates with the same value and future-date rules as new reading
   for (const [overrides, message] of [
     [{ value: null }, 'Please enter a glucose value.'],
     [{ value: 39 }, 'Value must be between 40 and 600 mg/dl.'],
-    [{ value: 112.5 }, 'Value must be between 40 and 600 mg/dl.'],
+    [{ value: 112.5 }, 'Please enter a whole number.'],
     [{ date: '2026-11-07' }, 'Date cannot be in the future.'],
   ]) {
     const response = await api('put', `/api/readings/${reading.id}`).send({ ...sample, ...overrides }).expect(400);

@@ -84,6 +84,24 @@ test('rejects invalid registration fields before writing any users', async () =>
   assert.equal(rows[0].count, 0);
 });
 
+test('requires every signup password character category and accepts an eight-character password', async () => {
+  for (const password of ['patientpass!42', 'PATIENTPASS!42', 'Patientpassword!', 'Patientpass42', 'Patientpass42 ', 'Patientpass42é']) {
+    const response = await register({ password }).expect(400);
+    assert.deepEqual(response.body, { field: 'password', error: 'Password must include uppercase, lowercase, a number, and a symbol.' });
+  }
+  const result = await register({ password: 'Abcdef1!' }).expect(201);
+  assert.equal(result.body.user.email, account.email);
+});
+
+test('allows existing accounts to log in without applying new signup character requirements', async () => {
+  const password = 'existingpassword';
+  await client.query('INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3)',
+    [account.name, account.email, await bcrypt.hash(password, 12)]);
+  const { body } = await request(app).post('/api/auth/login').send({ email: account.email, password }).expect(200);
+  assert.equal(body.user.email, account.email);
+  assert.equal(typeof body.token, 'string');
+});
+
 test('rejects duplicate emails regardless of case or surrounding whitespace', async () => {
   await register().expect(201);
   const response = await register({ email: ' PATIENT@EXAMPLE.TEST ' }).expect(409);

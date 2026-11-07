@@ -60,6 +60,11 @@ export default function AuthForm({ onSuccess, notice }) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) nextErrors.email = 'Please enter a valid email address.';
     if (!values.password) nextErrors.password = 'Please enter a password.';
     else if (isSignup && [...values.password].length < 8) nextErrors.password = 'Password must contain at least 8 characters.';
+    else if (new TextEncoder().encode(values.password).length > 72) nextErrors.password = 'Password is too long. Please use a shorter password.';
+    else if (isSignup && (!/[A-Z]/.test(values.password) || !/[a-z]/.test(values.password) ||
+        !/[0-9]/.test(values.password) || !/[^\p{L}\p{N}\s]/u.test(values.password))) {
+      nextErrors.password = 'Password must include uppercase, lowercase, a number, and a symbol.';
+    }
     if (Object.keys(nextErrors).length) return showErrors(nextErrors);
 
     setErrors({});
@@ -92,7 +97,7 @@ export default function AuthForm({ onSuccess, notice }) {
           placeholder="you@example.com" value={values.email} onChange={changeValue} error={errors.email} disabled={busy} required />
         <Field label="Password" name="password" type={showPassword ? 'text' : 'password'}
           autoComplete={isSignup ? 'new-password' : 'current-password'} value={values.password}
-          onChange={changeValue} error={errors.password} hint={isSignup ? 'Use at least 8 characters.' : undefined} disabled={busy} required>
+          onChange={changeValue} error={errors.password} hint={isSignup ? '8+ characters with uppercase, lowercase, a number and a symbol.' : undefined} disabled={busy} required>
           <button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'}
             aria-pressed={showPassword} disabled={busy} onClick={() => setShowPassword((value) => !value)}>{showPassword ? 'Hide' : 'Show'}</button>
         </Field>

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import App from './App.jsx';
@@ -56,6 +56,34 @@ test('shows required-field errors, focuses the first field, and makes no request
   expect(screen.getByText('Please enter a valid email address.')).toBeInTheDocument();
   expect(screen.getByText('Please enter a password.')).toBeInTheDocument();
   expect(screen.getByLabelText('Email address')).toHaveFocus();
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test('validates signup password length and each required character category before sending data', async () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: 'Create account', exact: true }));
+  await user.type(screen.getByLabelText('Your name'), patient.name);
+  await user.type(screen.getByLabelText('Email address'), patient.email);
+  const input = screen.getByLabelText('Password', { exact: true });
+  for (const [value, message] of [
+    ['Abcd1!x', 'Password must contain at least 8 characters.'],
+    ['patientpass!42', 'Password must include uppercase, lowercase, a number, and a symbol.'],
+    ['PATIENTPASS!42', 'Password must include uppercase, lowercase, a number, and a symbol.'],
+    ['Patientpassword!', 'Password must include uppercase, lowercase, a number, and a symbol.'],
+    ['Patientpass42', 'Password must include uppercase, lowercase, a number, and a symbol.'],
+    ['Patientpass42 ', 'Password must include uppercase, lowercase, a number, and a symbol.'],
+    ['Patientpass42é', 'Password must include uppercase, lowercase, a number, and a symbol.'],
+    ['A'.repeat(70) + 'b1!', 'Password is too long. Please use a shorter password.'],
+    ['€'.repeat(25), 'Password is too long. Please use a shorter password.'],
+  ]) {
+    fireEvent.change(input, { target: { value } });
+    await user.click(screen.getByRole('button', { name: 'Create my account' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(input).toHaveFocus();
+  }
   expect(fetchMock).not.toHaveBeenCalled();
 });
 

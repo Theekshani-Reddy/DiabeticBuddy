@@ -67,7 +67,7 @@ Use `npm run test:client` for frontend tests, `npm run test:server` for API/data
 
 ## API
 
-See the [API reference](docs/API.md) for authentication, readings, reports, payloads, and validation messages.
+See the [API reference](docs/API.md) for payloads and validation, and the [manual testing guide](docs/TESTING.md) for endpoints and PowerShell examples.
 Tokens expire after one hour. The frontend keeps them in per-tab session storage and verifies them with the API after refresh. Logout clears the client session.
 
 ## Screenshots
@@ -90,4 +90,5 @@ The example database credentials are for local development. Keep `.env` out of G
 - Dates and displayed times use `Asia/Kolkata`. Row times show when a reading was recorded, not its measurement time; timestamps use `TIMESTAMPTZ`.
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL follows the assignment's explicit database requirement despite its MERN label. Accounts are patients; the optional doctor role is not implemented.
+- Signup passwords require 8+ characters, uppercase/lowercase letters, a number, and a symbol, with a 72 UTF-8 byte maximum for bcrypt.
 - Bonus features: optional readings API pagination (`?page=1&limit=20`), PostgreSQL Docker Compose, monthly line charts, and frontend form tests. With more time: password recovery and deployment configuration.

@@ -43,6 +43,7 @@ export default function ReadingForm({ date, today, reading, readings, busy, savi
     const nextErrors = {};
     const value = Number(values.value);
     if (!values.value.trim()) nextErrors.value = 'Please enter a glucose value.';
+    else if (Number.isFinite(value) && !Number.isInteger(value)) nextErrors.value = 'Please enter a whole number.';
     else if (!Number.isInteger(value) || value < 40 || value > 600) nextErrors.value = 'Value must be between 40 and 600 mg/dl.';
     if (!isValidDate(values.date)) nextErrors.date = 'Please enter a valid date in YYYY-MM-DD format.';
     else if (values.date > today) nextErrors.date = 'Date cannot be in the future.';

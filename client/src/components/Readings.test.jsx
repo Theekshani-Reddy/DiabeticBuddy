@@ -57,11 +57,17 @@ test('shows required, range, whole-number, and future-date messages before sendi
   await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
   expect(screen.getByRole('alert')).toHaveTextContent('Please enter a glucose value.');
   expect(screen.getByLabelText('Glucose (mg/dl)')).toHaveFocus();
-  for (const value of ['39', '601', '112.5']) {
+  for (const value of ['39', '601']) {
     await user.clear(screen.getByLabelText('Glucose (mg/dl)'));
     await user.type(screen.getByLabelText('Glucose (mg/dl)'), value);
     await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
     expect(screen.getByRole('alert')).toHaveTextContent('Value must be between 40 and 600 mg/dl.');
+  }
+  for (const value of ['112.5', '39.5', '600.1']) {
+    await user.clear(screen.getByLabelText('Glucose (mg/dl)'));
+    await user.type(screen.getByLabelText('Glucose (mg/dl)'), value);
+    await user.click(screen.getByRole('button', { name: 'Add reading', exact: true }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Please enter a whole number.');
   }
   await user.clear(screen.getByLabelText('Glucose (mg/dl)'));
   await user.type(screen.getByLabelText('Glucose (mg/dl)'), '112');

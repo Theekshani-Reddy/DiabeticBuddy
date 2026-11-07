@@ -23,6 +23,10 @@ export function validateCredentials(body, { registration = false } = {}) {
   if (Buffer.byteLength(body.password, 'utf8') > 72) {
     return { field: 'password', error: 'Password is too long. Please use a shorter password.' };
   }
+  if (registration && (!/[A-Z]/.test(body.password) || !/[a-z]/.test(body.password) ||
+      !/[0-9]/.test(body.password) || !/[^\p{L}\p{N}\s]/u.test(body.password))) {
+    return { field: 'password', error: 'Password must include uppercase, lowercase, a number, and a symbol.' };
+  }
 
   return null;
 }

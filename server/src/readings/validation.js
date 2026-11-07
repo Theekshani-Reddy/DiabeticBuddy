@@ -25,6 +25,9 @@ export function validateReading(body, today) {
   if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
     return { field: 'value', error: 'Please enter a glucose value.' };
   }
+  if (typeof value === 'number' && Number.isFinite(value) && !Number.isInteger(value)) {
+    return { field: 'value', error: 'Please enter a whole number.' };
+  }
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 40 || value > 600) {
     return { field: 'value', error: 'Value must be between 40 and 600 mg/dl.' };
   }

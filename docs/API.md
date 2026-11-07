@@ -12,12 +12,18 @@ Base path: `/api`. Send request bodies as JSON. Errors return `{ error }`, with 
 | GET | `/auth/me` | Protected. Returns `200` with `{ user }`. |
 
 `user` contains only `id`, `name`, and `email`. Passwords are hashed using bcrypt
-(cost 12) and never returned. Registration requires at least 8 characters and at
-most 72 UTF-8 bytes. Emails are trimmed and lowercased. Tokens expire after one hour.
+(cost 12) and never returned. Registration requires at least 8 characters, with an
+uppercase letter, lowercase letter, digit, and symbol. Spaces do not count as symbols.
+Passwords have a 72 UTF-8 byte maximum to avoid bcrypt truncation. These character
+requirements apply to signup; existing accounts can still log in with their original
+passwords. Emails are trimmed and lowercased. Tokens expire after one hour.
 Registration and login share a limit of 30 requests per IP per 15 minutes.
 
 Invalid input returns `400`, invalid credentials or sessions return `401`, an
 existing registration email returns `409`, and excessive auth attempts return `429`.
+
+See the [manual testing guide](TESTING.md) for the complete endpoint list and
+copyable PowerShell examples.
 
 ## Readings
 
@@ -82,7 +88,8 @@ Listing a future date is permitted and returns an empty list when there are no r
 | Rule | Error message | Status |
 | --- | --- | --- |
 | Missing value | Please enter a glucose value. | `400` |
-| Non-integer or outside 40-600 | Value must be between 40 and 600 mg/dl. | `400` |
+| Decimal value | Please enter a whole number. | `400` |
+| Outside 40-600 or a non-numeric JSON value | Value must be between 40 and 600 mg/dl. | `400` |
 | Duplicate slot | You already have an After lunch reading for this date. | `409` |
 | Day already has four readings | You can add only 4 readings per day. | `409` |
 | Future date on create/update | Date cannot be in the future. | `400` |
