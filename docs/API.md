@@ -104,10 +104,12 @@ Example daily response:
 }
 ```
 
-Only the daily report includes `readings`, ordered by slot. All three reports return
+All reports include `readings`, ordered by calendar date and then slot. Monthly
+and month-to-date responses use the same readings for the line chart and summary,
+with at most 124 readings per response. All three reports return
 highest, lowest, average, and count. The average uses individual readings and is
 rounded to one decimal as a JSON number; the frontend formats `134` as `134.0`.
 
 Empty reports return `200` with `count: 0` and `highest`, `lowest`, and `average` set
-to `null`; the daily list is empty. The UI uses this to show its empty state. Reports
+to `null`; `readings` is an empty array. The UI uses this to show its empty state. Reports
 are recalculated from current data on every request and responses use `Cache-Control: no-store`.

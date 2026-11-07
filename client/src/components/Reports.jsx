@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiRequest } from '../lib/api.js';
+import GlucoseChart from './GlucoseChart.jsx';
 
 const periods = ['daily', 'mtd', 'monthly'];
 
@@ -74,6 +75,7 @@ export default function Reports({ date, today, token, type, onTypeChange, dailyR
               <div><dt>Lowest</dt><dd>{report.lowest}</dd></div>
             </dl>
             {type === 'daily' && children}
+            {type !== 'daily' && <GlucoseChart readings={report.readings} startDate={report.startDate} endDate={report.endDate} />}
           </>}
         </>}
       </section>

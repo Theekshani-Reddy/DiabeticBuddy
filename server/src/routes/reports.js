@@ -31,7 +31,7 @@ export function createReportsRouter({ db, jwtSecret, now }) {
       );
 
       // Each range contains at most 31 days / 124 readings. One query keeps the
-      // statistics and daily list consistent even if another request changes data.
+      // statistics and chart/list consistent even if another request changes data.
       const values = rows.map((reading) => reading.value);
       const count = values.length;
       const total = values.reduce((sum, value) => sum + value, 0);
@@ -41,7 +41,7 @@ export function createReportsRouter({ db, jwtSecret, now }) {
         lowest: count ? Math.min(...values) : null,
         average: count ? Math.round(total * 10 / count) / 10 : null,
         count,
-        ...(type === 'daily' && { readings: rows }),
+        readings: rows,
       });
     });
   }

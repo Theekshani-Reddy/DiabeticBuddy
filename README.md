@@ -51,6 +51,7 @@ npm run dev:client
 Open [localhost:5173](http://localhost:5173). The API health check is [localhost:3001/api/health](http://localhost:3001/api/health).
 After login, choose a date, select a slot card, and enter a glucose value. Edit/Delete actions appear in the daily report.
 Report tabs follow the selected date and show highest, lowest, average, and count; empty periods show a clear empty state.
+Month reports include a line chart for each time slot and an expandable table of exact values.
 Vite proxies `/api` to Express; restart both servers after changing `PORT`.
 `npm start` runs the API without watch mode. `npm run build` produces the frontend in `client/dist`; deployment requires serving these files and forwarding `/api` to Express.
 
@@ -72,7 +73,7 @@ Tokens expire after one hour. The frontend keeps them in per-tab session storage
 
 ## Screenshots
 
-[Login](docs/screenshots/login.png) · [Desktop dashboard](docs/screenshots/dashboard-desktop.png) · [Mobile dashboard](docs/screenshots/dashboard-mobile.png) · [Previous-month report](docs/screenshots/monthly-report.png)
+[Login](docs/screenshots/login.png) · [Desktop dashboard](docs/screenshots/dashboard-desktop.png) · [Mobile dashboard](docs/screenshots/dashboard-mobile.png) · [Previous-month report](docs/screenshots/monthly-report.png) · [Mobile chart](docs/screenshots/monthly-mobile.png)
 
 ## Configuration
 
@@ -90,4 +91,4 @@ The example database credentials are for local development. Keep `.env` out of G
 - Dates and displayed times use `Asia/Kolkata`. Row times show when a reading was recorded, not its measurement time; timestamps use `TIMESTAMPTZ`.
 - Slots are `morning`, `after_breakfast`, `after_lunch`, and `after_dinner`. Their uniqueness limits each user to four readings per day.
 - PostgreSQL follows the assignment's explicit database requirement despite its MERN label. Accounts are patients; the optional doctor role is not implemented.
-- With more time: charts, pagination, password recovery, and deployment configuration. Frontend form tests are included.
+- Bonus features: monthly line charts and frontend form tests. With more time: pagination, password recovery, and deployment configuration.

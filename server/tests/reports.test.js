@@ -92,7 +92,10 @@ test('month-to-date includes the first and selected days, excluding later and pr
   assert.deepEqual(stats(body), { highest: 148, lowest: 100, average: 124.4, count: 5 });
   assert.equal(body.startDate, '2026-10-01');
   assert.equal(body.endDate, '2026-10-15');
-  assert.equal(Object.hasOwn(body, 'readings'), false);
+  assert.deepEqual(body.readings.map(({ date, slot, value }) => [date, slot, value]), [
+    ['2026-10-01', 'morning', 100], ['2026-10-14', 'morning', 120],
+    ['2026-10-15', 'morning', 112], ['2026-10-15', 'after_breakfast', 148], ['2026-10-15', 'after_lunch', 142],
+  ]);
 });
 
 test('monthly means the whole previous calendar month, including both boundary dates', async () => {
@@ -105,7 +108,7 @@ test('monthly means the whole previous calendar month, including both boundary d
   assert.deepEqual(stats(body), { highest: 110, lowest: 90, average: 100, count: 2 });
   assert.equal(body.startDate, '2026-09-01');
   assert.equal(body.endDate, '2026-09-30');
-  assert.equal(Object.hasOwn(body, 'readings'), false);
+  assert.deepEqual(body.readings.map(({ date, value }) => [date, value]), [['2026-09-01', 90], ['2026-09-30', 110]]);
 });
 
 test('averages individual readings instead of averaging daily averages', async () => {
@@ -135,7 +138,7 @@ test('empty reports return zero count and null statistics instead of invalid glu
   for (const type of reportTypes) {
     const { body } = await getReport(type).expect(200);
     assert.deepEqual(stats(body), { highest: null, lowest: null, average: null, count: 0 });
-    if (type === 'daily') assert.deepEqual(body.readings, []);
+    assert.deepEqual(body.readings, []);
   }
 });
 
@@ -177,8 +180,8 @@ test('previous-month ranges handle leap years, century rules, and 30/31-day mont
 test('every report is restricted to its token owner and ignores supplied user ids', async () => {
   const ownId = await add('2026-10-15', 112);
   const otherId = await add('2026-10-15', 600, 'morning', 1);
-  await add('2026-09-15', 80);
-  await add('2026-09-15', 500, 'morning', 1);
+  const previousOwnId = await add('2026-09-15', 80);
+  const previousOtherId = await add('2026-09-15', 500, 'morning', 1);
   for (const type of reportTypes) {
     const response = await request(app).get(`/api/reports/${type}?date=2026-10-15&user_id=${users[1].id}`)
       .set('Authorization', `Bearer ${tokens[0]}`).expect(200);
@@ -186,10 +189,8 @@ test('every report is restricted to its token owner and ignores supplied user id
     assert.equal(response.body.count, 1);
     assert.equal(response.body.average, type === 'monthly' ? 80 : 112);
     assert.equal(other.body.average, type === 'monthly' ? 500 : 600);
-    if (type === 'daily') {
-      assert.deepEqual(response.body.readings.map(({ id }) => id), [ownId]);
-      assert.deepEqual(other.body.readings.map(({ id }) => id), [otherId]);
-    }
+    assert.deepEqual(response.body.readings.map(({ id }) => id), [type === 'monthly' ? previousOwnId : ownId]);
+    assert.deepEqual(other.body.readings.map(({ id }) => id), [type === 'monthly' ? previousOtherId : otherId]);
   }
 });
 
@@ -243,7 +244,9 @@ test('reports reflect adds, edits, moved dates, and deletes without stale cached
   }
   await authorized('put', `/api/readings/${id}`).send({ date: '2026-10-15', slot: 'morning', value: 148 }).expect(200);
   for (const [type, date] of [['daily', '2026-10-15'], ['mtd', '2026-10-15'], ['monthly', '2026-11-15']]) {
-    assert.equal((await getReport(type, date).expect(200)).body.average, 148);
+    const { body } = await getReport(type, date).expect(200);
+    assert.equal(body.average, 148);
+    assert.equal(body.readings[0].value, 148);
   }
   await authorized('put', `/api/readings/${id}`).send({ date: '2026-09-30', slot: 'morning', value: 148 }).expect(200);
   assert.equal((await getReport('daily').expect(200)).body.count, 0);

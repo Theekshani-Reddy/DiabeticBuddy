@@ -5,9 +5,12 @@ import { expect, test, vi } from 'vitest';
 import Reports from './Reports.jsx';
 
 const today = '2026-11-06';
+const samples = (date, values) => values.map((value, index) => ({ date, slot: ['morning', 'after_breakfast', 'after_lunch', 'after_dinner'][index], value }));
 const daily = { type: 'daily', date: today, startDate: today, endDate: today, highest: 148, lowest: 112, average: 134, count: 3 };
-const mtd = { type: 'mtd', date: today, startDate: '2026-11-01', endDate: today, highest: 220, lowest: 90, average: 165.3, count: 12 };
-const monthly = { type: 'monthly', date: today, startDate: '2026-10-01', endDate: '2026-10-31', highest: 200, lowest: 100, average: 150, count: 6 };
+const mtd = { type: 'mtd', date: today, startDate: '2026-11-01', endDate: today, highest: 220, lowest: 90, average: 165.3, count: 12,
+  readings: [...samples('2026-11-01', [90, 220, 180, 170]), ...samples('2026-11-02', [160, 170, 175, 180]), ...samples(today, [112, 180, 175, 172])] };
+const monthly = { type: 'monthly', date: today, startDate: '2026-10-01', endDate: '2026-10-31', highest: 200, lowest: 100, average: 150, count: 6,
+  readings: [...samples('2026-10-01', [100, 200, 150, 150]), ...samples('2026-10-31', [150, 150])] };
 const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
 const ignore = () => {};
 
@@ -30,6 +33,7 @@ test('formats the API average to one decimal and shows highest, lowest, count, a
   expect(screen.getByText('6 Nov 2026')).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'Today' })).toHaveAttribute('aria-selected', 'true');
   expect(screen.getByText('Daily reading list')).toBeInTheDocument();
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
@@ -40,22 +44,27 @@ test('loads month-to-date and previous-month reports and shows the reading list 
   render(<Harness />);
   await user.click(screen.getByRole('tab', { name: 'This month' }));
   expect(await screen.findByText('165.3')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Glucose trend mg/dl' })).toBeInTheDocument();
+  expect(screen.getByText('6 Nov · Morning (fasting): 112 mg/dl')).toBeInTheDocument();
   expect(screen.getByText('1 Nov 2026 – 6 Nov 2026')).toBeInTheDocument();
   expect(screen.queryByText('Daily reading list')).not.toBeInTheDocument();
   expect(fetchMock.mock.calls[0][0]).toBe(`/api/reports/mtd?date=${today}`);
   expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
   await user.click(screen.getByRole('tab', { name: 'Last month' }));
   expect(await screen.findByText('150.0')).toBeInTheDocument();
+  expect(screen.getByText('1 Oct · Morning (fasting): 100 mg/dl')).toBeInTheDocument();
+  expect(screen.queryByText('6 Nov · Morning (fasting): 112 mg/dl')).not.toBeInTheDocument();
   expect(screen.getByText('1 Oct 2026 – 31 Oct 2026')).toBeInTheDocument();
   expect(fetchMock.mock.calls[1][0]).toBe(`/api/reports/monthly?date=${today}`);
   await user.click(screen.getByRole('tab', { name: 'Today' }));
   expect(screen.getByText('134.0')).toBeInTheDocument();
   expect(screen.getByText('Daily reading list')).toBeInTheDocument();
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 test('empty daily and month reports show clear empty states without a false zero average', async () => {
-  const empty = { ...daily, count: 0, average: null, highest: null, lowest: null };
+  const empty = { ...daily, readings: [], count: 0, average: null, highest: null, lowest: null };
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply({ ...mtd, ...empty, startDate: mtd.startDate })));
   const user = userEvent.setup();
   render(<Harness report={empty} />);
@@ -98,19 +107,24 @@ test('ignores a late response after the user switches to another report', async 
   expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
 });
 
-test('refreshes the active month report after reading data changes', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(reply(mtd)).mockResolvedValueOnce(reply({ ...mtd, average: 170.5, count: 13 }));
+test('refreshes the active month report and chart after reading data changes', async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(reply(mtd)).mockResolvedValueOnce(reply({ ...mtd, average: 170.5, count: 13,
+    readings: [...mtd.readings.map((reading) => reading.date === today && reading.slot === 'morning' ? { ...reading, value: 180 } : reading),
+      ...samples('2026-11-03', [164])] }));
   vi.stubGlobal('fetch', fetchMock);
   const view = render(<Harness initialType="mtd" />);
   expect(await screen.findByText('165.3')).toBeInTheDocument();
   view.rerender(<Harness initialType="mtd" revision={1} />);
   expect(await screen.findByText('170.5')).toBeInTheDocument();
+  expect(screen.getByText('6 Nov · Morning (fasting): 180 mg/dl')).toBeInTheDocument();
+  expect(screen.queryByText('6 Nov · Morning (fasting): 112 mg/dl')).not.toBeInTheDocument();
   expect(screen.getByText('13 readings')).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'This month' })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('preserves report selection and uses accurate labels/ranges for a historical selected date', async () => {
-  const previous = { ...monthly, date: '2026-10-15', startDate: '2026-09-01', endDate: '2026-09-30', average: 135.2 };
+  const previous = { ...monthly, date: '2026-10-15', startDate: '2026-09-01', endDate: '2026-09-30', average: 135.2,
+    readings: monthly.readings.map((reading) => ({ ...reading, date: reading.date.endsWith('31') ? '2026-09-30' : '2026-09-01' })) };
   const fetchMock = vi.fn().mockResolvedValueOnce(reply(monthly)).mockResolvedValueOnce(reply(previous));
   vi.stubGlobal('fetch', fetchMock);
   const view = render(<Harness initialType="monthly" />);
