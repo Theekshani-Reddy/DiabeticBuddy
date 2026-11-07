@@ -90,7 +90,7 @@ test('creates, lists, edits, and deletes a reading while preserving calendar dat
 });
 
 test('requires authentication for every readings operation', async () => {
-  for (const [method, path] of [['get', '/api/readings'], ['post', '/api/readings'],
+  for (const [method, path] of [['get', '/api/readings'], ['get', '/api/readings?page=1&limit=20'], ['post', '/api/readings'],
     ['put', '/api/readings/1'], ['delete', '/api/readings/1']]) {
     await request(app)[method](path).send(sample).expect(401);
   }
@@ -219,6 +219,97 @@ test('returns clear errors for invalid ids and unknown readings', async () => {
   }
   await api('put', '/api/readings/2147483647').send(sample).expect(404);
   await api('delete', '/api/readings/2147483647').expect(404);
+});
+
+test('paginates in date/slot order with correct totals and no repeated or missing readings', async () => {
+  for (const date of ['2026-11-04', '2026-11-05', '2026-11-06']) await fillDay(date);
+  const all = (await api('get').expect(200)).body.readings;
+  const collected = [];
+  for (const page of [1, 2, 3]) {
+    const { body, headers } = await api('get', `/api/readings?page=${page}&limit=5`).expect(200);
+    assert.deepEqual(body.pagination, { page, limit: 5, total: 12, totalPages: 3 });
+    assert.deepEqual(body.readings, all.slice((page - 1) * 5, page * 5));
+    assert.equal(headers['cache-control'], 'no-store');
+    collected.push(...body.readings);
+  }
+  assert.deepEqual(collected, all);
+});
+
+test('defaults pagination parameters only when requested and preserves unpaginated responses', async () => {
+  for (const day of ['01', '02', '03', '04', '05', '06']) await fillDay(`2026-11-${day}`);
+  const all = (await api('get').expect(200)).body;
+  assert.deepEqual(Object.keys(all), ['readings']);
+  assert.equal(all.readings.length, 24);
+  const first = (await api('get', '/api/readings?page=1').expect(200)).body;
+  assert.deepEqual(first.pagination, { page: 1, limit: 20, total: 24, totalPages: 2 });
+  assert.deepEqual(first.readings, all.readings.slice(0, 20));
+  const second = (await api('get', '/api/readings?page=2').expect(200)).body;
+  assert.deepEqual(second.readings, all.readings.slice(20));
+  const limitOnly = (await api('get', '/api/readings?limit=3').expect(200)).body;
+  assert.deepEqual(limitOnly.pagination, { page: 1, limit: 3, total: 24, totalPages: 8 });
+  assert.deepEqual(limitOnly.readings, all.readings.slice(0, 3));
+  const maximumLimit = (await api('get', '/api/readings?limit=100').expect(200)).body;
+  assert.equal(maximumLimit.readings.length, 24);
+  assert.equal(maximumLimit.pagination.limit, 100);
+});
+
+test('pagination rows and totals respect the date filter and authenticated owner', async () => {
+  const own = await fillDay();
+  await add({ date: '2026-11-05' });
+  const other = [];
+  for (const slot of ['morning', 'after_breakfast', 'after_lunch']) other.push((await add({ slot }, 1)).body.reading);
+  const first = (await api('get', `/api/readings?date=${sample.date}&page=1&limit=2&user_id=${users[1].id}`).expect(200)).body;
+  assert.deepEqual(first.pagination, { page: 1, limit: 2, total: 4, totalPages: 2 });
+  assert.deepEqual(first.readings, own.slice(0, 2));
+  const second = (await api('get', `/api/readings?date=${sample.date}&page=2&limit=2`).expect(200)).body;
+  assert.deepEqual(second.readings, own.slice(2));
+  assert.equal((await api('get', '/api/readings?page=1').expect(200)).body.pagination.total, 5);
+  const otherUser = (await api('get', `/api/readings?page=1&limit=2&user_id=${users[0].id}`, 1).expect(200)).body;
+  assert.deepEqual(otherUser.pagination, { page: 1, limit: 2, total: 3, totalPages: 2 });
+  assert.deepEqual(otherUser.readings, other.slice(0, 2));
+});
+
+test('empty and out-of-range pages return empty readings and accurate metadata', async () => {
+  const empty = (await api('get', '/api/readings?page=1&limit=2').expect(200)).body;
+  assert.deepEqual(empty, { readings: [], pagination: { page: 1, limit: 2, total: 0, totalPages: 0 } });
+  await fillDay();
+  const pastEnd = (await api('get', '/api/readings?page=5&limit=2').expect(200)).body;
+  assert.deepEqual(pastEnd, { readings: [], pagination: { page: 5, limit: 2, total: 4, totalPages: 2 } });
+  const absentDate = (await api('get', '/api/readings?date=2026-11-05&page=1').expect(200)).body;
+  assert.deepEqual(absentDate, { readings: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
+  const largePage = (await api('get', '/api/readings?page=9007199254740991&limit=1').expect(200)).body;
+  assert.deepEqual(largePage, { readings: [], pagination: { page: Number.MAX_SAFE_INTEGER, limit: 1, total: 4, totalPages: 4 } });
+});
+
+test('rejects invalid, repeated and excessive pagination parameters with clear field errors', async () => {
+  for (const page of ['', '0', '-1', '1.5', '1e2', 'abc', 'NaN', 'Infinity', '9007199254740992', '01', '+1']) {
+    const response = await api('get', `/api/readings?page=${encodeURIComponent(page)}`).expect(400);
+    assert.deepEqual(response.body, { field: 'page', error: 'Page must be a positive whole number.' });
+  }
+  for (const limit of ['', '0', '-1', '1.5', '2e1', 'abc', '101', 'Infinity', '9007199254740992', '01']) {
+    const response = await api('get', `/api/readings?limit=${encodeURIComponent(limit)}`).expect(400);
+    assert.deepEqual(response.body, { field: 'limit', error: 'Limit must be a whole number between 1 and 100.' });
+  }
+  for (const [query, field] of [['page=1&page=2', 'page'], ['limit=2&limit=3', 'limit']]) {
+    const response = await api('get', `/api/readings?${query}`).expect(400);
+    assert.equal(response.body.field, field);
+  }
+  const overflow = await api('get', '/api/readings?page=9007199254740991&limit=100').expect(400);
+  assert.deepEqual(overflow.body, { field: 'page', error: 'Page is too large. Please choose a smaller page.' });
+  const date = await api('get', '/api/readings?date=2026-02-29&page=1').expect(400);
+  assert.equal(date.body.field, 'date');
+});
+
+test('pagination parameters do not truncate daily or monthly report data and statistics', async () => {
+  await fillDay('2026-11-05');
+  await fillDay();
+  for (const [type, date, count] of [['daily', sample.date, 4], ['mtd', sample.date, 8], ['monthly', '2026-12-06', 8]]) {
+    const { body } = await api('get', `/api/reports/${type}?date=${date}&page=2&limit=1`).expect(200);
+    assert.equal(body.count, count);
+    assert.equal(body.readings.length, count);
+    assert.equal(body.average, sample.value);
+    assert.equal(Object.hasOwn(body, 'pagination'), false);
+  }
 });
 
 test('simultaneous requests cannot create duplicate readings or exceed four per day', async () => {

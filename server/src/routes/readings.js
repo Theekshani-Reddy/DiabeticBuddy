@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createRequireAuth } from '../middleware/require-auth.js';
 import { duplicateSlotError, isValidDate, todayInKolkata, validateReading } from '../readings/validation.js';
+import { parsePagination } from '../readings/pagination.js';
 
 // Return DATE as text to preserve the calendar date across browser/server timezones.
 const columns = 'id, date::text AS date, slot, value, created_at';
@@ -39,12 +40,23 @@ export function createReadingsRouter({ db, jwtSecret, now }) {
     if (date !== undefined && !isValidDate(date)) {
       return res.status(400).json({ field: 'date', error: 'Please enter a valid date in YYYY-MM-DD format.' });
     }
-    const { rows } = await db.query(
-      `SELECT ${columns} FROM readings WHERE user_id = $1 AND ($2::date IS NULL OR date = $2)
-       ORDER BY date DESC, ${slotOrder}`,
-      [req.user.id, date ?? null],
-    );
-    res.json({ readings: rows });
+    const pagination = parsePagination(req.query);
+    if (pagination?.error) return res.status(400).json(pagination);
+
+    const filter = 'FROM readings WHERE user_id = $1 AND ($2::date IS NULL OR date = $2)';
+    const query = `SELECT ${columns} ${filter} ORDER BY date DESC, ${slotOrder}`;
+    const parameters = [req.user.id, date ?? null];
+    if (!pagination) {
+      const { rows } = await db.query(query, parameters);
+      return res.json({ readings: rows });
+    }
+
+    const { page, limit, offset } = pagination;
+    const count = await db.query(`SELECT count(*)::int AS total ${filter}`, parameters);
+    const total = count.rows[0].total;
+    const { rows } = offset >= total ? { rows: [] }
+      : await db.query(`${query} LIMIT $3 OFFSET $4`, [...parameters, limit, offset]);
+    res.json({ readings: rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   });
 
   router.post('/', async (req, res) => {

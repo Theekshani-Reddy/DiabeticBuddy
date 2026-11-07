@@ -29,8 +29,35 @@ Ownership comes from the token; a submitted `user_id` does not change ownership.
 | POST | `/readings` | Creates a reading. Returns `201` with `{ reading }`. |
 | GET | `/readings` | Returns `200` with `{ readings: [...] }`, newest date first, then slot order. |
 | GET | `/readings?date=YYYY-MM-DD` | Filters to a calendar date. No results returns `{ readings: [] }`. |
+| GET | `/readings?page=1&limit=20` | Returns a page of readings with pagination metadata; supports the same date filter. |
 | PUT | `/readings/:id` | Replaces date, slot, and value. Returns `200` with `{ reading }`. |
 | DELETE | `/readings/:id` | Deletes a reading. Returns `204` with no response body. |
+
+Pagination is optional. Supplying either `page` or `limit` enables it, with defaults
+of page `1` and limit `20`. With neither parameter, the existing unpaginated
+`{ readings }` response is preserved. Supply positive whole numbers using digits
+without leading zeros; `limit` must be between `1` and `100`. Invalid or repeated
+parameters return `400` with `field: "page"` or `field: "limit"`. Pages/offsets must
+fit JavaScript's safe integer range; an excessive offset returns `400`.
+
+For example, `/readings?page=2&limit=2` for a user with five readings returns:
+
+```json
+{
+  "readings": [
+    { "id": 3, "date": "2026-10-15", "slot": "after_lunch", "value": 142, "created_at": "2026-10-15T08:00:00.000Z" },
+    { "id": 4, "date": "2026-10-15", "slot": "after_dinner", "value": 135, "created_at": "2026-10-15T14:00:00.000Z" }
+  ],
+  "pagination": { "page": 2, "limit": 2, "total": 5, "totalPages": 3 }
+}
+```
+
+Totals include only the authenticated user's readings matching the date filter.
+Order remains newest date first, then Morning, After breakfast, After lunch,
+After dinner. Empty results have `total: 0` and `totalPages: 0`. A page beyond
+the last page returns `200` with an empty array and the requested page number.
+Concurrent edits can move readings between pages; reports always use the full
+date range and are not paginated.
 
 Create and update body:
 
